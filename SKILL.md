@@ -11,7 +11,7 @@ allowed-tools:
 
 # Gemini CLI Integration Skill
 
-This skill enables Claude Code to effectively orchestrate Gemini CLI (v0.16.0+) with Gemini 3 Pro for code generation, review, analysis, and specialized tasks.
+This skill enables Claude Code to effectively orchestrate Gemini CLI (v0.21.1+) with Gemini 3 Pro and Gemini 3 Flash for code generation, review, analysis, and specialized tasks.
 
 ## When to Use This Skill
 
@@ -67,7 +67,7 @@ Key flags:
 - `--yolo` or `-y`: Auto-approve all tool calls
 - `-o text`: Human-readable output
 - `-o json`: Structured output with stats
-- `-m gemini-2.5-flash`: Use faster model for simple tasks
+- `-m gemini-3-flash`: Use faster model for simple tasks
 
 ### 3. Critical Behavioral Notes
 
@@ -75,6 +75,11 @@ Key flags:
 - "Apply now"
 - "Start immediately"
 - "Do this without asking for confirmation"
+
+**File Edit Control**: In YOLO mode, Gemini will automatically edit files unless told otherwise. If you want Gemini to analyze or generate code WITHOUT writing to disk, explicitly say so:
+- "Output the code but do not write any files"
+- "Show me the changes without applying them"
+- "Review only, do not edit"
 
 **Rate Limits**: Free tier has 60 requests/min, 1000/day. CLI auto-retries with backoff. Expect messages like "quota will reset after Xs".
 
@@ -130,14 +135,14 @@ gemini "What are the latest [topic]? Use Google Search." -o text
 
 ### Faster Model (Simple Tasks)
 ```bash
-gemini "[prompt]" -m gemini-2.5-flash -o text
+gemini "[prompt]" -m gemini-3-flash -o text
 ```
 
 ## Error Handling
 
 ### Rate Limit Exceeded
 - CLI auto-retries with backoff
-- Use `-m gemini-2.5-flash` for lower priority tasks
+- Use `-m gemini-3-flash` for lower priority tasks
 - Run in background for long operations
 
 ### Command Failures
@@ -191,8 +196,34 @@ Create `.gemini/GEMINI.md` in project root for persistent context that Gemini wi
 
 ### Session Management
 
-List sessions: `gemini --list-sessions`
-Resume session: `echo "follow-up" | gemini -r [index] -o text`
+Gemini CLI automatically saves all conversations - no manual saving required. Sessions are **project-scoped** (tied to the directory you run from). This is extremely useful for multi-turn workflows where context accumulates.
+
+**Command-line flags:**
+```bash
+# List available sessions with timestamps and message counts
+gemini --list-sessions
+
+# Resume most recent session
+gemini -r latest -o text
+
+# Resume by index number (from --list-sessions output)
+gemini -r 3 -o text
+
+# Resume by UUID
+gemini -r a1b2c3d4-e5f6-7890-abcd-ef1234567890 -o text
+
+# Delete a session
+gemini --delete-session 2
+```
+
+**Piping follow-up prompts:**
+```bash
+echo "follow-up question" | gemini -r 1 -o text
+```
+
+**What gets saved:** Complete conversation history, tool execution details (inputs/outputs), token usage stats, and assistant reasoning summaries.
+
+**Interactive session browser:** In interactive mode, type `/resume` to open a searchable session browser with preview, filtering, and deletion.
 
 ## See Also
 

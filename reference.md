@@ -28,7 +28,7 @@ gemini  # First run prompts for auth
 |------|-------|-------------|
 | `--yolo` | `-y` | Auto-approve all tool calls |
 | `--output-format` | `-o` | Output format: `text`, `json`, `stream-json` |
-| `--model` | `-m` | Model selection (e.g., `gemini-2.5-flash`) |
+| `--model` | `-m` | Model selection (e.g., `gemini-3-flash`) |
 
 ### Session Management
 
@@ -84,7 +84,7 @@ Returns structured data:
   "response": "The actual response content",
   "stats": {
     "models": {
-      "gemini-2.5-flash": {
+      "gemini-3-flash": {
         "api": {
           "totalRequests": 3,
           "totalErrors": 0,
@@ -126,8 +126,8 @@ Real-time newline-delimited JSON events for monitoring long tasks.
 | Model | Use Case | Context |
 |-------|----------|---------|
 | `gemini-3-pro` | Complex tasks (default) | 1M tokens |
-| `gemini-2.5-flash` | Quick tasks, lower latency | Large |
-| `gemini-2.5-flash-lite` | Fastest, simplest tasks | Medium |
+| `gemini-3-flash` | Quick tasks, lower latency | Large |
+| `gemini-2.5-flash` | Legacy fallback | Large |
 
 ### Usage
 ```bash
@@ -135,7 +135,7 @@ Real-time newline-delimited JSON events for monitoring long tasks.
 gemini "complex analysis" -o text
 
 # Flash for speed
-gemini "simple task" -m gemini-2.5-flash -o text
+gemini "simple task" -m gemini-3-flash -o text
 ```
 
 ## Configuration Files
@@ -190,6 +190,19 @@ dist/
 
 ## Session Management
 
+Sessions are automatically saved after every interaction. They are **project-scoped** - stored per directory, so switching folders switches your session history.
+
+### Storage Location
+```
+~/.gemini/tmp/<project_hash>/chats/
+```
+
+### What Gets Saved
+- Complete conversation history (prompts and responses)
+- Tool execution details (inputs and outputs)
+- Token usage statistics
+- Assistant reasoning summaries (when available)
+
 ### List Sessions
 ```bash
 gemini --list-sessions
@@ -205,12 +218,50 @@ Available sessions for this project (5):
 
 ### Resume Session
 ```bash
-# By index
-echo "follow-up question" | gemini -r 1 -o text
+# Resume most recent session
+gemini -r latest -o text
 
-# Latest session
-echo "continue" | gemini -r latest -o text
+# By index number
+gemini -r 1 -o text
+
+# By full UUID
+gemini -r a1b2c3d4-e5f6-7890-abcd-ef1234567890 -o text
+
+# Pipe follow-up into resumed session
+echo "follow-up question" | gemini -r 1 -o text
 ```
+
+### Delete Session
+```bash
+gemini --delete-session 2
+```
+
+### Interactive Session Browser
+In interactive mode, use `/resume` to open a searchable browser:
+- Browse chronologically sorted sessions
+- See message counts and summaries
+- Press `/` to filter by ID or keywords
+- Press `x` to delete sessions
+- Press Enter to resume selected session
+
+### Session Configuration (settings.json)
+
+```json
+{
+  "sessionRetention": {
+    "enabled": true,
+    "maxAge": "30d",
+    "maxCount": 50
+  },
+  "maxSessionTurns": 100
+}
+```
+
+| Option | Description |
+|--------|-------------|
+| `maxAge` | Auto-delete sessions older than this ("24h", "7d", "4w", "30d") |
+| `maxCount` | Maximum sessions to retain |
+| `maxSessionTurns` | Max exchanges per session (-1 for unlimited) |
 
 ## Rate Limits
 
@@ -224,7 +275,7 @@ echo "continue" | gemini -r latest -o text
 - Typical wait: 1-5 seconds
 
 ### Mitigation
-1. Use `gemini-2.5-flash` for simple tasks
+1. Use `gemini-3-flash` for simple tasks
 2. Batch operations into single prompts
 3. Run long tasks in background
 
@@ -280,7 +331,7 @@ In interactive mode, prefix with `!`:
 | Issue | Solution |
 |-------|----------|
 | "API key not found" | Set `GEMINI_API_KEY` env var |
-| "Rate limit exceeded" | Wait for auto-retry or use Flash |
+| "Rate limit exceeded" | Wait for auto-retry or use `gemini-3-flash` |
 | "Context too large" | Use `.geminiignore` or be specific |
 | "Tool call failed" | Check JSON stats for details |
 
