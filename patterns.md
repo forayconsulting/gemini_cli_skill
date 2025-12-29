@@ -49,7 +49,7 @@ gemini "[prompt]" -o json 2>&1
 // In Node.js or with jq
 const result = JSON.parse(output);
 const content = result.response;
-const tokenUsage = result.stats.models["gemini-2.5-flash"].tokens.total;
+const tokenUsage = result.stats.models["gemini-3-flash"].tokens.total;
 const toolCalls = result.stats.tools.byName;
 ```
 
@@ -96,10 +96,10 @@ Choose the right model for the task.
 Is the task complex (architecture, multi-file, deep analysis)?
 ├── Yes → Use default (Gemini 3 Pro)
 └── No → Is speed critical?
-    ├── Yes → Use gemini-2.5-flash
+    ├── Yes → Use gemini-3-flash
     └── No → Is it trivial (formatting, simple query)?
-        ├── Yes → Use gemini-2.5-flash-lite
-        └── No → Use gemini-2.5-flash
+        ├── Yes → Use gemini-3-flash
+        └── No → Use gemini-3-flash
 ```
 
 ### Examples
@@ -108,10 +108,10 @@ Is the task complex (architecture, multi-file, deep analysis)?
 gemini "Analyze codebase architecture" -o text
 
 # Quick: Simple formatting
-gemini "Format this JSON" -m gemini-2.5-flash -o text
+gemini "Format this JSON" -m gemini-3-flash -o text
 
 # Trivial: One-liner
-gemini "What is 2+2?" -m gemini-2.5-flash -o text
+gemini "What is 2+2?" -m gemini-3-flash -o text
 ```
 
 ## Pattern 5: Rate Limit Handling
@@ -127,7 +127,7 @@ Default behavior - CLI retries automatically with backoff.
 gemini "[important task]" --yolo -o text
 
 # Lower priority: Use Flash (different quota)
-gemini "[less critical task]" -m gemini-2.5-flash -o text
+gemini "[less critical task]" -m gemini-3-flash -o text
 ```
 
 ### Approach 3: Batch Operations
@@ -271,27 +271,59 @@ gemini "Create [code]" --yolo -o text
 
 ## Pattern 10: Session Continuity
 
-Use sessions for multi-turn workflows.
+Sessions are **automatically saved** after every interaction - no manual saving needed. Use sessions for multi-turn workflows where accumulated context improves results. Sessions are **project-scoped**, so switch directories to switch session histories.
 
+### Basic Session Workflow
 ```bash
-# Initial task
+# Initial task - session auto-saves
 gemini "Analyze this codebase architecture" -o text
-# Session saved automatically
 
-# List sessions
+# Check what sessions exist
 gemini --list-sessions
+# Output shows: 1. Analyze this codebase... (2 minutes ago) [uuid]
 
-# Continue with follow-up
+# Resume and continue (by index)
 echo "What patterns did you find?" | gemini -r 1 -o text
 
-# Further refinement
+# Further refinement in same session
 echo "Focus on the authentication flow" | gemini -r 1 -o text
+
+# Or resume most recent directly
+gemini -r latest -o text
+```
+
+### Resume Session Without Piping
+When you want an interactive follow-up without typing your prompt immediately:
+```bash
+# Opens interactive mode with previous context loaded
+gemini -r 1
 ```
 
 ### Use Cases
-- Iterative analysis
-- Building on previous context
-- Debugging sessions
+- **Iterative analysis**: Build understanding over multiple queries
+- **Workshop sessions**: Collaborate with Gemini on design decisions
+- **Debugging sessions**: Maintain context across troubleshooting steps
+- **Code review cycles**: Reference previous findings in follow-ups
+
+### Anti-Pattern: New Session When You Should Resume
+Each standalone `gemini "..."` call starts a fresh session with no prior context. If your follow-up question relies on previous discussion, **always use `-r`**:
+
+```bash
+# BAD: Loses context from previous analysis
+gemini "What patterns did you find?"  # Gemini has no idea what you analyzed before
+
+# GOOD: Continues with full context
+echo "What patterns did you find?" | gemini -r 1 -o text
+```
+
+### Session Management Commands
+```bash
+gemini --list-sessions     # See all sessions for current project
+gemini --delete-session 3  # Clean up old sessions
+```
+
+### Interactive Session Browser
+In interactive mode, `/resume` opens a searchable browser where you can filter sessions by keywords, preview content, and select one to resume.
 
 ## Anti-Patterns to Avoid
 
